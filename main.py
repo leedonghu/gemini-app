@@ -18,4 +18,4 @@ if not PROJECT_ID:
 
 @app.get("/")
 def home():
-    return {"status": "Stock Bot is Alive!"}
+    return {"status": "test"}
