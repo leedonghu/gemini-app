@@ -1,0 +1,4 @@
+# 필요한 라이브러리 목록 (주문서)
+fastapi
+uvicorn
+google-cloud-aiplatform
