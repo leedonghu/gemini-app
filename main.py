@@ -1,61 +1,69 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from vertexai.generative_models import GenerativeModel, Tool, grounding
-import vertexai
 from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 
-# .env 파일 로드
+# 1. 환경 변수 로드 (보안 정보를 .env에서 가져옴)
 load_dotenv()
 
+PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
+LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION")
+MODEL_ID = os.getenv("GEMINI_MODEL_ID")
+
+# 2. FastAPI 앱 인스턴스 생성 (이게 있어야 uvicorn이 실행됨)
 app = FastAPI()
 
-# 1. Project ID 확인 (없으면 여기서부터 문제임)
-PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT")
-print(f"현재 인식된 프로젝트 ID: {PROJECT_ID}") # 터미널에 출력
-
-# 2. Vertex AI 초기화 (실패하면 에러가 남)
-try:
-    if not PROJECT_ID:
-        raise ValueError("Project ID가 환경변수에 없습니다! .env 파일을 확인하세요.")
-    vertexai.init(project=PROJECT_ID, location="us-central1")
-    
-    # 1. 구글 검색 툴(Grounding) 쓸 거면 이렇게 선언    
-    tool_google_search = Tool.from_google_search_retrieval(
-        google_search_retrieval=grounding.GoogleSearchRetrieval()
-    )
-    model = GenerativeModel("gemini-2.5-flash", tools=[tool_google_search])
-    print("Vertex AI 초기화 성공!")
-except Exception as e:
-    print(f"초기화 중 에러 발생: {e}")
-    model = None # 모델 로딩 실패 처리
-
-class UserQuery(BaseModel):
+# 요청 데이터 구조 정의
+class StockRequest(BaseModel):
     query: str
 
 @app.get("/")
-def home():
-    return {"status": "test!"}
+def read_root():
+    return {"status": "Server is running", "model": MODEL_ID}
 
 @app.post("/analyze")
-def analyze_stock(request_data: UserQuery):
-    # 모델이 제대로 로딩 안 됐으면 멈춤
-    if not model:
-        return {"error": "모델이 초기화되지 않았습니다. 터미널 로그를 확인하세요."}
+def analyze_stock(request: StockRequest):
+    """
+    주식 분석 요청을 받아 Gemini 2.5 + Google Search로 분석 결과 반환
+    """
+    if not PROJECT_ID:
+        raise HTTPException(status_code=500, detail="Project ID 설정이 안 되었습니다.")
+
+    print(f"🚀 분석 요청 수신: {request.query}")
+
+    # 3. Gemini 클라이언트 초기화
+    client = genai.Client(
+        vertexai=True,
+        project=PROJECT_ID,
+        location=LOCATION
+    )
+
+    google_search_tool = types.Tool(
+        google_search=types.GoogleSearch()
+    )
 
     try:
-        user_query = request_data.query 
-        print(f"질문 받음: {user_query}")
+        # 4. 모델 호출
+        response = client.models.generate_content(
+            model=MODEL_ID,
+            contents=request.query,
+            config=types.GenerateContentConfig(
+                tools=[google_search_tool],
+                response_modalities=["TEXT"],
+                temperature=0.1,
+            )
+        )
         
-        # 3. 여기서 에러가 나면 잡아서 보여줌
-        response = model.generate_content(user_query)
-        return {"reply": response.text}
-        
-    except Exception as e:
-        # 에러 내용을 그대로 브라우저로 보냄 (디버깅용)
-        return {"error_message": str(e), "type": "Gemini 실행 중 에러"}
+        # 결과 반환
+        return {
+            "query": request.query,
+            "response": response.text,
+            "source": "Google Search Grounding"
+        }
 
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    except Exception as e:
+        print(f"❌ 에러 발생: {str(e)}")
+        # 사용자에게는 상세 에러 대신 일반 메시지 전달 (보안)
+        raise HTTPException(status_code=500, detail=str(e))
