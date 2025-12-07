@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI
 from pydantic import BaseModel
-from vertexai.generative_models import GenerativeModel
+from vertexai.generative_models import GenerativeModel, Tool, grounding
 import vertexai
 from dotenv import load_dotenv
 
@@ -19,7 +19,12 @@ try:
     if not PROJECT_ID:
         raise ValueError("Project ID가 환경변수에 없습니다! .env 파일을 확인하세요.")
     vertexai.init(project=PROJECT_ID, location="us-central1")
-    model = GenerativeModel("gemini-2.5-flash")
+    
+    # 1. 구글 검색 툴(Grounding) 쓸 거면 이렇게 선언    
+    tool_google_search = Tool.from_google_search_retrieval(
+        google_search_retrieval=grounding.GoogleSearchRetrieval()
+    )
+    model = GenerativeModel("gemini-2.5-flash", tools=[tool_google_search])
     print("Vertex AI 초기화 성공!")
 except Exception as e:
     print(f"초기화 중 에러 발생: {e}")
