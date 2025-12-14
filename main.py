@@ -15,7 +15,7 @@ PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
 LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION")
 # 폰트 경로 설정 (프로젝트 루트의 fonts 폴더 안에 폰트 파일이 있어야 함)
 # 굵고 힘있는 폰트가 잘 어울립니다. (예: NanumSquareRoundEB.ttf, GmarketSansBold.ttf)
-FONT_PATH = "./fonts/NanumSquareRoundEB.ttf" 
+FONT_PATH = "./fonts/GmarketSansTTFBold.ttf" 
 
 client = genai.Client(
     vertexai=True,
