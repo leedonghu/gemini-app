@@ -15,8 +15,8 @@ PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
 LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION")
 # 폰트 경로 설정 (프로젝트 루트의 fonts 폴더 안에 폰트 파일이 있어야 함)
 # 굵고 힘있는 폰트가 잘 어울립니다. (예: NanumSquareRoundEB.ttf, GmarketSansBold.ttf)
-FONT_PATH = "./fonts/GmarketSansTTFBold.ttf" 
-
+FONT_PATH = "./fonts/NanumSquareRoundEB.ttf" 
+# FONT_PATH = "./fonts/GmarketSansTTFBold.ttf" 
 client = genai.Client(
     vertexai=True,
     project=PROJECT_ID,
@@ -82,8 +82,8 @@ def create_premium_card_image(image_bytes, data):
     draw = ImageDraw.Draw(text_layer)
 
     # 1. 폰트 크기 설정 (작고 오밀조밀하게)
-    font_s = load_font(int(width * 0.05))  # 1줄: 제품명
-    font_xl = load_font(int(width * 0.06)) # 2줄: 주식 수
+    font_s = load_font(int(width * 0.04))  # 1줄: 제품명
+    font_xl = load_font(int(width * 0.075)) # 2줄: 주식 수
     font_m = load_font(int(width * 0.05))  # 3줄: 티커
 
     # 2. 색상 정의
@@ -101,22 +101,30 @@ def create_premium_card_image(image_bytes, data):
     product_color = parse_color_string(raw_prod_color, default_mint) # 제품 색상
     company_color = parse_color_string(raw_comp_color, default_mint) # 기업 색상
     
+    name = data.get('company_name', 'Company')
+    ticker = data.get('ticker', 'TICKER')
+    count = data.get('share_count', '0')
     
+    if str(ticker).isdigit(): 
+        display_name = name  # 한국 주식: 이름 표시 (예: 삼성전자)
+    else:
+        display_name = ticker # 해외 주식: 티커 표시 (예: TSLA)
+
     # Line 1: [제품명(노랑)] + [ 참으면(흰색)]
     line1_parts = [
-        (data.get('product_name', '제품'), font_xl, product_color),
-        (" 참고", font_s, color_white)
+        (data.get('product_name', '제품'), font_m, product_color),
+        (" 대신", font_s, color_white)
     ]
     
     # Line 2: [N주(노랑)] - 전체 강조
     line2_parts = [
-        (f"{data.get('company_name', 'Company')}({data.get('ticker', 'TICKER')}) {data.get('share_count', '0')}주", font_xl, company_color)
+        (f"{display_name} {count}주", font_xl, company_color)
     ]
     
     # Line 3: [티커(노랑)] + [ 주주(노랑)] + [ 가능!(흰색)]
     line3_parts = [
-        (" 주주", font_xl, color_highlight_down),
-        (" 되자!", font_m, color_white)
+        (" 주주", font_m, color_highlight_down),
+        (" 되자!", font_s, color_white)
     ]
 
     # 4. 조각난 텍스트 이어 그리기 함수 (핵심 로직)
@@ -130,7 +138,9 @@ def create_premium_card_image(image_bytes, data):
             max_height = max(max_height, bbox[3] - bbox[1])
         
         # (2) 시작 X 좌표 (중앙)
-        start_x = (width - total_width) // 2
+        padding_right = int(width * 0.1) # 오른쪽 여백 10%
+        start_x = width - total_width - padding_right
+        # start_x = (width - total_width) // 2
         
         # (3) 순서대로 그리기
         current_x = start_x
@@ -221,6 +231,13 @@ async def vision_invest_image(file: UploadFile = File(...)):
         - provide the name in Korean (e.g., "애플", "삼성전자", "스타벅스").
         - Must be a listed company on a stock exchange.
         - If it is not a publicly traded company or you cannot identify which company it is, it is likely the largest publicly traded company that makes a similar product.
+        
+        Rules for 'product_price':
+        - Estimate the retail price of the product in KRW.
+        - If the product is a consumable (e.g., coffee, food), provide the price for a standard size or serving.
+        - If the product is a durable good (e.g., phone, car, shoes), provide the base model price without extra features.
+        - If the product is intangible, provide its subscription fee or usage fee(e.g., Netflix monthly fee).
+        
 
         JSON Output Requirements:
         1. "product_name": Product name in Korean.
