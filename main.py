@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 # 1. 설정 및 클라이언트 초기화
 load_dotenv()
@@ -70,11 +70,9 @@ def get_optimal_shadow_color(text_color):
 # ==========================================
 # [최종] 상용 앱 수준의 '트레이딩 카드' 디자인
 # ==========================================
-def create_premium_card_image(image_bytes, data):
-    try:
-        base_image = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
-    except Exception:
-        base_image = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
+def create_premium_card_image(base_image: Image.Image, data: dict):
+    # 이미지가 이미 열려있고 회전 보정된 상태로 들어옴
+    base_image = base_image.convert("RGBA")
         
     width, height = base_image.size
     
@@ -200,6 +198,34 @@ async def vision_invest_image(file: UploadFile = File(...)):
     try:
         image_bytes = await file.read()
         
+        # ---------------------------------------------------------
+        # [핵심 수정] 1. 이미지 열기 및 회전 보정 (문제 2 해결)
+        # ---------------------------------------------------------
+        original_image = Image.open(io.BytesIO(image_bytes))
+        
+        # EXIF 정보를 기반으로 이미지 회전 (모바일 사진 가로로 눕는 현상 해결)
+        fixed_image = ImageOps.exif_transpose(original_image)
+        
+        # ---------------------------------------------------------
+        # [핵심 수정] 2. API 전송용 리사이징 (문제 1 해결)
+        # ---------------------------------------------------------
+        # Gemini 분석을 위해 원본 대신 작은 이미지를 만듭니다 (최대 1024px)
+        # 이렇게 하면 업로드 및 분석 속도가 획기적으로 빨라집니다.
+        gemini_input_image = fixed_image.copy()
+        gemini_input_image.thumbnail((1024, 1024)) 
+        
+        # P모드나 RGBA모드일 경우 JPEG 저장이 안 되므로, 강제로 RGB로 바꿉니다.
+        # ========================================================
+        if gemini_input_image.mode != 'RGB':
+            gemini_input_image = gemini_input_image.convert('RGB')
+        
+        # 리사이징된 이미지를 바이트로 변환
+        buf = io.BytesIO()
+        gemini_input_image.save(buf, format="JPEG", quality=85)
+        optimized_image_bytes = buf.getvalue()
+
+        print(f"🔍 1단계: 이미지 분석 중... (원본 크기: {fixed_image.size}, 전송 크기: {gemini_input_image.size})")
+        
         # ==========================================
         # 1단계: Gemini 분석 (안전한 도형 강제)
         # ==========================================
@@ -267,7 +293,7 @@ async def vision_invest_image(file: UploadFile = File(...)):
         analysis_response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=[
-                types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
+                types.Part.from_bytes(data=optimized_image_bytes, mime_type="image/jpeg"),
                 analyze_prompt
             ],
             config=types.GenerateContentConfig(
@@ -305,11 +331,11 @@ async def vision_invest_image(file: UploadFile = File(...)):
         print("🎨 2&3단계: 고퀄리티 이미지 합성 중 (Pillow v2)...")
         
         # 이제 텍스트를 합치지 않고 데이터 자체를 넘깁니다.
-        final_image_stream = create_premium_card_image(image_bytes, data)
+        final_image_stream = create_premium_card_image(fixed_image, data)
         
-        file_name = "C:\\Users\\Lenovo\\Desktop\\111\\local_test_result.jpg"
-        with open(file_name, "wb") as f:
-            f.write(final_image_stream.getvalue())
+        # file_name = "C:\\Users\\Lenovo\\Desktop\\111\\local_test_result.jpg"
+        # with open(file_name, "wb") as f:
+        #     f.write(final_image_stream.getvalue())
         
         return StreamingResponse(final_image_stream, media_type="image/jpeg")
 
