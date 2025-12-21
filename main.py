@@ -226,12 +226,12 @@ async def vision_invest_image(file: UploadFile = File(...)):
         gemini_input_image.save(buf, format="JPEG", quality=85)
         optimized_image_bytes = buf.getvalue()
 
-        print(f"🔍 1단계: 이미지 분석 중... (원본 크기: {fixed_image.size}, 전송 크기: {gemini_input_image.size})")
+        # print(f"🔍 1단계: 이미지 분석 중... (원본 크기: {fixed_image.size}, 전송 크기: {gemini_input_image.size})")
         
         # ==========================================
         # 1단계: Gemini 분석 (안전한 도형 강제)
         # ==========================================
-        print("🔍 1단계: 이미지 분석 중...")
+        # print("🔍 1단계: 이미지 분석 중...")
         analyze_prompt = """
         Analyze this image and identify the main product.
         Provide the details in JSON format.
@@ -326,12 +326,12 @@ async def vision_invest_image(file: UploadFile = File(...)):
 
         # [테스트용 가짜 데이터 - Gemini 호출 성공 시 주석 처리하세요]
         data = json.loads(analysis_response.text)
-        print(f"✅ 분석 완료: {data}")
+        # print(f"✅ 분석 완료: {data}")
 
         # ==========================================
         # 2단계 & 3단계: 문구 완성 및 Pillow 합성 (v2 호출)
         # ==========================================
-        print("🎨 2&3단계: 고퀄리티 이미지 합성 중 (Pillow v2)...")
+        # print("🎨 2&3단계: 고퀄리티 이미지 합성 중 (Pillow v2)...")
         
         # 이제 텍스트를 합치지 않고 데이터 자체를 넘깁니다.
         final_image_stream = create_premium_card_image(fixed_image, data)
