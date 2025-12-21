@@ -13,14 +13,16 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 load_dotenv()
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
 LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION")
+API_KEY = os.getenv("GEMINI_API_KEY")
 # 폰트 경로 설정 (프로젝트 루트의 fonts 폴더 안에 폰트 파일이 있어야 함)
 # 굵고 힘있는 폰트가 잘 어울립니다. (예: NanumSquareRoundEB.ttf, GmarketSansBold.ttf)
 FONT_PATH = "./fonts/NanumSquareRoundEB.ttf" 
 # FONT_PATH = "./fonts/GmarketSansTTFBold.ttf" 
 client = genai.Client(
-    vertexai=True,
-    project=PROJECT_ID,
-    location=LOCATION
+    # vertexai=True,
+    # project=PROJECT_ID,
+    # location=LOCATION
+    api_key=API_KEY
 )
 
 app = FastAPI()
@@ -291,7 +293,7 @@ async def vision_invest_image(file: UploadFile = File(...)):
         # ... (Gemini 호출 및 에러 처리 코드는 이전과 동일하게 유지) ...
         # (지면 관계상 생략, 기존 코드의 Gemini 호출 부분을 그대로 사용하세요)
         analysis_response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3-flash-preview',
             contents=[
                 types.Part.from_bytes(data=optimized_image_bytes, mime_type="image/jpeg"),
                 analyze_prompt
