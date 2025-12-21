@@ -293,7 +293,8 @@ async def vision_invest_image(file: UploadFile = File(...)):
         # ... (Gemini 호출 및 에러 처리 코드는 이전과 동일하게 유지) ...
         # (지면 관계상 생략, 기존 코드의 Gemini 호출 부분을 그대로 사용하세요)
         analysis_response = client.models.generate_content(
-            model='gemini-3-flash-preview',
+            # model='gemini-3-flash-preview',
+            model='gemini-2.5-flash',
             contents=[
                 types.Part.from_bytes(data=optimized_image_bytes, mime_type="image/jpeg"),
                 analyze_prompt
