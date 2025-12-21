@@ -18,12 +18,7 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 # 굵고 힘있는 폰트가 잘 어울립니다. (예: NanumSquareRoundEB.ttf, GmarketSansBold.ttf)
 FONT_PATH = "./fonts/NanumSquareRoundEB.ttf" 
 # FONT_PATH = "./fonts/GmarketSansTTFBold.ttf" 
-client = genai.Client(
-    # vertexai=True,
-    # project=PROJECT_ID,
-    # location=LOCATION
-    api_key=API_KEY
-)
+client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
 
 app = FastAPI()
 
