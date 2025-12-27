@@ -240,9 +240,6 @@ async def vision_invest_image(file: UploadFile = File(...)):
            - Good: "스타벅스 아이스 아메리카노", "삼성 갤럭시 S24 울트라", "나이키 덩크 로우"
            - Bad: "커피", "스마트폰", "운동화"
         
-        Rules for 'symbol':
-        - Do NOT use emojis.
-        - ONLY use one of these safe geometric shapes: ●, ■, ◆, ★, ♥, ♠
         
         [Logic for 'share_count']
         Calculate: (Product Price / Stock Price)
@@ -274,7 +271,7 @@ async def vision_invest_image(file: UploadFile = File(...)):
         9. "product_representation_color": A representative color of the product in RGBA, last value must be 255 (e.g., "(0, 255, 0, 255)").
 
         Example:
-        {"symbol": "♥", 
+        {
         "product_name": "스타벅스 커피", 
         "ticker": "SBUX", 
         "product_price": "4500", 
@@ -282,7 +279,8 @@ async def vision_invest_image(file: UploadFile = File(...)):
         "share_count": "0.03", 
         "company_name": "스타벅스",
         "company_representation_color": "(0, 128, 0, 255)",
-        "product_representation_color": "(139, 69, 19, 255)"}
+        "product_representation_color": "(139, 69, 19, 255)"
+        }
         """
         
         # ... (Gemini 호출 및 에러 처리 코드는 이전과 동일하게 유지) ...
@@ -342,3 +340,60 @@ async def vision_invest_image(file: UploadFile = File(...)):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate-fitting")
+async def generate_fitting(
+    model: UploadFile = File(...), 
+    outfit: UploadFile = File(...)
+):
+    try:
+        print("testing...")
+        # 1. 파일 데이터 읽기
+        model_data = await model.read()
+        outfit_data = await outfit.read()
+        
+        optimized_model_image = create_optimized_image(model_data)
+        optimized_outfit_image = create_optimized_image(outfit_data)
+
+        # 2. 여기서 Gemini 2.5/3 API 호출 (이전 가이드 참고)
+        # result_image, comment, rating = call_gemini_api(model_data, outfit_data)
+        
+        # 테스트용 가짜 응답
+        return {
+            "status": "success",
+            "image_url": "https://your-storage.com/result.jpg",
+            "comment": "이 조합은 정말 완벽하네요!",
+            "rating": 4.5
+        }
+
+    except Exception as e:
+    	print(f"❌ 에러 발생: {str(e)}")
+
+
+def create_optimized_image(image_bytes: bytes) -> bytes:
+     # ---------------------------------------------------------
+        # [핵심 수정] 1. 이미지 열기 및 회전 보정 (문제 2 해결)
+        # ---------------------------------------------------------
+        original_image = Image.open(io.BytesIO(image_bytes))
+        
+        # EXIF 정보를 기반으로 이미지 회전 (모바일 사진 가로로 눕는 현상 해결)
+        fixed_image = ImageOps.exif_transpose(original_image)
+        
+        # ---------------------------------------------------------
+        # [핵심 수정] 2. API 전송용 리사이징 (문제 1 해결)
+        # ---------------------------------------------------------
+        # Gemini 분석을 위해 원본 대신 작은 이미지를 만듭니다 (최대 1024px)
+        # 이렇게 하면 업로드 및 분석 속도가 획기적으로 빨라집니다.
+        gemini_input_image = fixed_image.copy()
+        gemini_input_image.thumbnail((1024, 1024)) 
+        
+        # P모드나 RGBA모드일 경우 JPEG 저장이 안 되므로, 강제로 RGB로 바꿉니다.
+        # ========================================================
+        if gemini_input_image.mode != 'RGB':
+            gemini_input_image = gemini_input_image.convert('RGB')
+        
+        # 리사이징된 이미지를 바이트로 변환
+        buf = io.BytesIO()
+        gemini_input_image.save(buf, format="JPEG", quality=85)
+        return buf.getvalue()
+        
