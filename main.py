@@ -9,6 +9,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+import datetime as dt
 
 # 1. 설정 및 클라이언트 초기화
 load_dotenv()
@@ -357,13 +358,15 @@ async def generate_fitting(
     model: UploadFile = File(...), garment: UploadFile = File(...)
 ):
     try:
-        print("testing...")
+        print("file reading...", dt.datetime.now().strftime("%H:%M:%S"))
         # 1. 파일 데이터 읽기
         model_data = await model.read()
         garment_data = await garment.read()
 
         optimized_model_image = create_optimized_image(model_data)
         optimized_garment_image = create_optimized_image(garment_data)
+        
+        print("file reading end", dt.datetime.now().strftime("%H:%M:%S"))
 
         # 2. 여기서 Gemini 2.5/3 API 호출 (이전 가이드 참고)
         # result_image, comment, rating = call_gemini_api(model_data, outfit_data)
@@ -381,20 +384,21 @@ async def generate_fitting(
         Final Output: High-resolution, photorealistic image without any background alteration."
         """
 
+        print("image generate...", dt.datetime.now().strftime("%H:%M:%S"))
         synthesis_response = client.models.generate_content(
-            model="gemini-3-pro-image-preview",
+            model="gemini-2.5-flash-image",
             contents=[
                 synthesis_prompt,
                 Image.open(io.BytesIO(optimized_model_image)),
                 Image.open(io.BytesIO(optimized_garment_image)),
             ],
-            config=types.GenerateContentConfig(
-                response_modalities=['IMAGE'], # 이미지 결과물을 받겠다고 명시
-                image_config=types.ImageConfig(
-                    aspect_ratio="3:4", # 피팅 앱에 적합한 비율
-                    image_size="2K"
-                ),
-            )
+            # config=types.GenerateContentConfig(
+            #     response_modalities=['IMAGE'], # 이미지 결과물을 받겠다고 명시
+            #     image_config=types.ImageConfig(
+            #         aspect_ratio="3:4", # 피팅 앱에 적합한 비율
+            #         image_size="2K"
+            #     ),
+            # )
         )
         
         # 2. 이미지 추출 (as_image() 방식)
@@ -414,7 +418,7 @@ async def generate_fitting(
             print("❌ 이미지를 찾을 수 없습니다.")
         
         ########################### 이미지 보고 분석 단계 ###########################
-        
+        print("image complete...", dt.datetime.now().strftime("%H:%M:%S"))
 
         # 3. 결과 이미지를 기반으로 코멘트 및 별점 생성
         analysis_prompt = """
@@ -429,6 +433,7 @@ async def generate_fitting(
             "comment": "멋진 조화네요"
         }
         """
+        print("comment start...", dt.datetime.now().strftime("%H:%M:%S"))
         analysis_response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=[
@@ -469,7 +474,7 @@ async def generate_fitting(
 
         # [Step 3] 최종 응답 구성
         # encoded_image = base64.b64encode(result_bytes).decode('utf-8')
-        
+        print("comment end...", dt.datetime.now().strftime("%H:%M:%S"))
         return {
             "status": "success",
             "image": f"data:image/jpeg;base64,{base64.b64encode(result_bytes).decode('utf-8')}",
