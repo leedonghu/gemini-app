@@ -417,6 +417,7 @@ async def generate_fitting(
 
         if not result_bytes:
             print("❌ 이미지를 찾을 수 없습니다.")
+            return {"status": "error", "message": "AI could not generate image due to safety filters."}
         
         ########################### 이미지 보고 분석 단계 ###########################
         print("image complete...", dt.datetime.now().strftime("%H:%M:%S"))
@@ -458,17 +459,13 @@ async def generate_fitting(
         # [디버깅 핵심] 파싱 전 텍스트 내용 확인
         print(f"DEBUG: Analysis Response Text = '{analysis_response.text}'")
 
-        if not analysis_response.text.strip():
-            # 텍스트가 비어있는 경우 기본값 설정
-            print("⚠️ Gemini가 분석 내용을 생성하지 않았습니다. (안전 필터 의심)")
-            analysis_json = {"rating": 0, "comment": "분석을 생성할 수 없습니다."}
-        else:
-            # 안전하게 JSON 파싱 시도
+        # 안전한 JSON 파싱 로직
+        analysis_json = {"rating": 0, "comment": "분석 실패"}
+        if analysis_response.text.strip():
             try:
                 analysis_json = json.loads(analysis_response.text)
-            except json.JSONDecodeError as je:
+            except Exception as je:
                 print(f"❌ JSON 파싱 에러: {je}")
-                analysis_json = {"rating": 0, "comment": "결과 데이터 형식이 올바르지 않습니다."}
             
         # Gemini가 뱉은 JSON 문자열을 파이썬 객체로 변환
         # analysis_json = json.loads(analysis_response.text)
@@ -479,7 +476,7 @@ async def generate_fitting(
         return {
             "status": "success",
             "image": f"data:image/jpeg;base64,{base64.b64encode(result_bytes).decode('utf-8')}",
-            "analysis": json.loads(analysis_response.text)
+            "analysis": analysis_json 
         }
 
     except Exception as e:
