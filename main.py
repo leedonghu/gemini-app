@@ -375,6 +375,7 @@ async def generate_fitting(
         Act as a professional virtual try-on AI. 
         Your task is to seamlessly overlay the [Garment Image] onto the person in the [Model Image].
         Dress the person in the first image in the clothes in the second image.
+        [Model Image] is the first image provided and [Garment Image] is the second image provided.
 
         Technical Requirements:
         Identity Preservation: Maintain the model's facial features, skin tone, and posture exactly as shown in the source.
