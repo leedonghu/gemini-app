@@ -275,10 +275,9 @@ async def vision_invest_image(file: UploadFile = File(...)):
         3. "share_count": Calculated string based on the logic above.
         4. "product_price" : Estimated product price in KRW (Integer string, e.g. "4500").
         5. "stock_price" : Estimated stock price in KRW (Integer string, e.g. "120000").
-        6. "symbol": One safe shape.
-        7. "company_name": follow the rules above.
-        8. "company_representation_color": A representative color of the company in RGBA, last value must be 255 (e.g., "(255, 0, 0, 255)").
-        9. "product_representation_color": A representative color of the product in RGBA, last value must be 255 (e.g., "(0, 255, 0, 255)").
+        6. "company_name": follow the rules above.
+        7. "company_representation_color": A representative color of the company in RGBA, last value must be 255 (e.g., "(255, 0, 0, 255)").
+        8. "product_representation_color": A representative color of the product in RGBA, last value must be 255 (e.g., "(0, 255, 0, 255)").
 
         Example:
         {
@@ -376,6 +375,17 @@ async def generate_fitting(
         Your task is to seamlessly overlay the [Garment Image] onto the person in the [Model Image].
         Dress the person in the first image in the clothes in the second image.
         [Model Image] is the first image provided and [Garment Image] is the second image provided.
+        
+        Realistic Layering Logic: 
+        Analyze the type of garment in the [Garment Image] (e.g., base layer, mid-layer, or outerwear) and apply it according to standard dressing conventions. 
+        Outerwear, such as jackets, coats, or padding, must be layered realistically over any thinner garments the model might retain. 
+        Conversely, base layers like t-shirts should replace the current top garment. 
+        Never place bulky outer layers underneath fitted base layers.
+        
+        Garment Hierarchy & Stacking: 
+        Respect standard clothing layering conventions. 
+        If the [Garment Image] is identified as outerwear (e.g., a jacket, coat, or puffer), it should be draped over the model's existing thinner top (like a t-shirt), adding realistic bulk and volume on top of the base layer. 
+        If the [Garment Image] is a base layer, it should replace the model's current top garment entirely.
 
         Technical Requirements:
         Identity Preservation: Maintain the model's facial features, skin tone, and posture exactly as shown in the source.
@@ -491,6 +501,7 @@ def create_optimized_image(image_bytes: bytes) -> bytes:
     original_image = Image.open(io.BytesIO(image_bytes))
 
     # EXIF 정보를 기반으로 이미지 회전 (모바일 사진 가로로 눕는 현상 해결)
+    # 파이썬의 Pillow 라이브러리에서 제공하는 ImageOps.exif_transpose() 함수는 이미지에 포함된 EXIF 메타데이터의 방향(orientation) 정보를 읽어들여 이미지를 올바르게 회전(transposing)시켜주는 기능
     fixed_image = ImageOps.exif_transpose(original_image)
 
     # ---------------------------------------------------------
@@ -499,6 +510,9 @@ def create_optimized_image(image_bytes: bytes) -> bytes:
     # Gemini 분석을 위해 원본 대신 작은 이미지를 만듭니다 (최대 1024px)
     # 이렇게 하면 업로드 및 분석 속도가 획기적으로 빨라집니다.
     gemini_input_image = fixed_image.copy()
+    
+    # Pillow 라이브러리를 사용해 이미지 크기를 조정하거나, 동영상에서 프레임을 추출해 만들며, 자동화된 유튜브 썸네일 제작이나 특정 디자인 템플릿에 텍스트/이미지를 합성하는 등 다양한 방식으로 활용
+    # width, height
     gemini_input_image.thumbnail((1024, 1024))
 
     # P모드나 RGBA모드일 경우 JPEG 저장이 안 되므로, 강제로 RGB로 바꿉니다.
