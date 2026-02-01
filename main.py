@@ -205,6 +205,7 @@ async def vision_invest_image(file: UploadFile = File(...)):
     try:
         image_bytes = await file.read()
 
+        print("🔍 이미지 보정 시작")
         # ---------------------------------------------------------
         # [핵심 수정] 1. 이미지 열기 및 회전 보정 (문제 2 해결)
         # ---------------------------------------------------------
@@ -231,12 +232,14 @@ async def vision_invest_image(file: UploadFile = File(...)):
         gemini_input_image.save(buf, format="JPEG", quality=85)
         optimized_image_bytes = buf.getvalue()
 
+        print("✅ 이미지 보정 완료")
+
         # print(f"🔍 1단계: 이미지 분석 중... (원본 크기: {fixed_image.size}, 전송 크기: {gemini_input_image.size})")
 
         # ==========================================
         # 1단계: Gemini 분석 (안전한 도형 강제)
         # ==========================================
-        # print("🔍 1단계: 이미지 분석 중...")
+        print("🔍 1단계: 이미지 분석 중...")
         analyze_prompt = """
         Analyze this image and identify the main product.
         Provide the details in JSON format.
@@ -328,15 +331,17 @@ async def vision_invest_image(file: UploadFile = File(...)):
 
         # [테스트용 가짜 데이터 - Gemini 호출 성공 시 주석 처리하세요]
         data = json.loads(analysis_response.text)
-        # print(f"✅ 분석 완료: {data}")
+        print(f"✅ 분석 완료: {data}")
 
         # ==========================================
         # 2단계 & 3단계: 문구 완성 및 Pillow 합성 (v2 호출)
         # ==========================================
-        # print("🎨 2&3단계: 고퀄리티 이미지 합성 중 (Pillow v2)...")
+        print("🎨 2&3단계: 고퀄리티 이미지 합성 중 (Pillow v2)...")
 
         # 이제 텍스트를 합치지 않고 데이터 자체를 넘깁니다.
         final_image_stream = create_premium_card_image(fixed_image, data)
+
+        print("✅ 이미지 합성 완료")
 
         # file_name = "C:\\Users\\Lenovo\\Desktop\\111\\local_test_result.jpg"
         # with open(file_name, "wb") as f:
@@ -370,6 +375,7 @@ async def generate_fitting(
         # 2. 여기서 Gemini 2.5/3 API 호출 (이전 가이드 참고)
         # result_image, comment, rating = call_gemini_api(model_data, outfit_data)
 
+        print("🔍 이미지 합성 시작", dt.datetime.now().strftime("%H:%M:%S"))
         synthesis_prompt = """
         Act as a professional virtual try-on AI. 
         Your task is to seamlessly overlay the [Garment Image] onto the person in the [Model Image].
@@ -411,6 +417,8 @@ async def generate_fitting(
             #     ),
             # )
         )
+
+        print("image generate...", dt.datetime.now().strftime("%H:%M:%S"))
         
         # 2. 이미지 추출 (as_image() 방식)
         result_bytes = None
