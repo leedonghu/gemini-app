@@ -25,7 +25,10 @@ client = genai.Client(api_key=API_KEY, http_options={'timeout': 600 * 1000})
 app = FastAPI()
 
 
+from functools import lru_cache
+
 # 폰트 로드 도우미 함수
+@lru_cache(maxsize=32)
 def load_font(size):
     try:
         return ImageFont.truetype(FONT_PATH, size)
@@ -126,7 +129,7 @@ def create_premium_card_image(base_image: Image.Image, data: dict):
         (" 되자!", font_s, color_white),
     ]
 
-    # 4. 조각난 텍스트 이어 그리기 함수 (핵심 로직)
+    # 4. 조각난 텍스트 이어 그리기 함수 (핵심 로직 - 최적화 적용)
     def draw_multi_colored_line(parts, y_pos):
         # (1) 전체 너비 미리 계산 (중앙 정렬 위해)
         total_width = 0
@@ -150,20 +153,18 @@ def create_premium_card_image(base_image: Image.Image, data: dict):
             else:
                 current_shadow = get_optimal_shadow_color(color)
 
-            # 그림자 (외곽선 효과)
+            # 그림자 (외곽선 효과) - Pillow native feature 사용 (속도 개선)
             stroke_width = max(2, int(font.size / 12))
-            for dx in range(-stroke_width, stroke_width + 1):
-                for dy in range(-stroke_width, stroke_width + 1):
-                    if dx != 0 or dy != 0:
-                        draw.text(
-                            (current_x + dx, y_pos + dy),
-                            text,
-                            font=font,
-                            fill=current_shadow,
-                        )
-
-            # 실제 글씨
-            draw.text((current_x, y_pos), text, font=font, fill=color)
+            
+            # 실제 글씨 그리기 (stroke_width 사용 시 한 번에 그려짐)
+            draw.text(
+                (current_x, y_pos),
+                text,
+                font=font,
+                fill=color,
+                stroke_width=stroke_width,
+                stroke_fill=current_shadow
+            )
 
             # 다음 글자 위치로 이동
             bbox = draw.textbbox((0, 0), text, font=font)
@@ -217,10 +218,10 @@ async def vision_invest_image(file: UploadFile = File(...)):
         # ---------------------------------------------------------
         # [핵심 수정] 2. API 전송용 리사이징 (문제 1 해결)
         # ---------------------------------------------------------
-        # Gemini 분석을 위해 원본 대신 작은 이미지를 만듭니다 (최대 1024px)
+        # Gemini 분석을 위해 원본 대신 작은 이미지를 만듭니다 (최대 800px)
         # 이렇게 하면 업로드 및 분석 속도가 획기적으로 빨라집니다.
         gemini_input_image = fixed_image.copy()
-        gemini_input_image.thumbnail((1024, 1024))
+        gemini_input_image.thumbnail((800, 800))
 
         # P모드나 RGBA모드일 경우 JPEG 저장이 안 되므로, 강제로 RGB로 바꿉니다.
         # ========================================================
@@ -515,13 +516,13 @@ def create_optimized_image(image_bytes: bytes) -> bytes:
     # ---------------------------------------------------------
     # [핵심 수정] 2. API 전송용 리사이징 (문제 1 해결)
     # ---------------------------------------------------------
-    # Gemini 분석을 위해 원본 대신 작은 이미지를 만듭니다 (최대 1024px)
+    # Gemini 분석을 위해 원본 대신 작은 이미지를 만듭니다 (최대 800px)
     # 이렇게 하면 업로드 및 분석 속도가 획기적으로 빨라집니다.
     gemini_input_image = fixed_image.copy()
     
     # Pillow 라이브러리를 사용해 이미지 크기를 조정하거나, 동영상에서 프레임을 추출해 만들며, 자동화된 유튜브 썸네일 제작이나 특정 디자인 템플릿에 텍스트/이미지를 합성하는 등 다양한 방식으로 활용
     # width, height
-    gemini_input_image.thumbnail((1024, 1024))
+    gemini_input_image.thumbnail((800, 800))
 
     # P모드나 RGBA모드일 경우 JPEG 저장이 안 되므로, 강제로 RGB로 바꿉니다.
     # ========================================================
